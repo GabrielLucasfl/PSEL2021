@@ -40,6 +40,51 @@ void MiraeChuta(int id,float p1x, float p1y, float p2x, float p2y, float AngRobo
 }
 
 //pegar a bola
+void PegaBola(int id, float pbx, float pby, float prx, float pry, float AngRobo,  Actuator *actuator)
+{
+
+    float DeltaX, DeltaY;
+    float Ang, AngMin, AngMax;
+    float Vx, Vy;
+
+    DeltaX = pbx - prx;
+    DeltaY = pby - pry;
+
+    //angulo que o alvo faz com a reta de refencia
+    Ang  = atan2 (DeltaY,DeltaX);
+
+    //intervalo de aceitacao
+    AngMin = Ang - 0.02;
+    AngMax = Ang + 0.02;
+
+    //velocidade proporcional
+    Vx= 0.001* fabs(DeltaX);
+    Vy= 0.001* fabs(DeltaY);
+
+    if (AngMin > AngRobo)
+        {
+            actuator->sendCommand(false, id, 0, 0, 0.5);
+        }
+
+        if ( (AngMin < AngRobo) && (AngRobo < AngMax) )
+        {
+            //testa se pegou a bola
+            if( ( fabs(DeltaX)< 112.3 ) && ( fabs(DeltaY) <150.3 ) )
+            {
+                actuator->sendCommand(false, id, 0, 0, 0, true);
+                std::cout << " OPA PEDIU PRA PARAR PAROU" << std::endl;
+            }
+            else
+            {
+                actuator->sendCommand(false, id, Vx, Vy, 0, true);
+            }
+        }
+
+        if (AngMax < AngRobo)
+        {
+            actuator->sendCommand(false, id, 0, 0, -0.5);
+        }
+}
 
 //Mira
 void Mira(int id,float p1x, float p1y, float p2x, float p2y, float AngRobo,  Actuator *actuator)
@@ -101,7 +146,7 @@ int main(int argc, char *argv[]) {
     int  desiredFrequency = 60;
 
     //estado inicial da maquina de estados
-    int Estado =2;
+    int Estado =1;
 
     //posicao em X e Y do gol
     int golx= 4629.8;
@@ -138,15 +183,16 @@ int main(int argc, char *argv[]) {
             //Estado 1: robo 0 pega a bola
             case 1:
                 //Robo0 pega a bola
-
+                PegaBola(0, ball.x(), ball.y(), blueRobot0.x(), blueRobot0.y() ,blueRobot0.orientation(), actuator);
 
                 //testa se o robo0 pegou a bola
                 possedeBola = Posse(ball.x(), ball.y(), blueRobot0.x(), blueRobot0.y());
                 opa= opa+possedeBola;
-                if(opa >= 3)
+
+                if(opa >= 9)
                 {
                     opa=0;
-                    Estado = 2;
+                    Estado = 3;
                 }
             break;
 
@@ -161,7 +207,7 @@ int main(int argc, char *argv[]) {
                 if((possedeBola == 0))
                 {
                     opa =opa +1;
-                    Estado = opa;
+                    Estado = 1;
                 }
             break;
 
