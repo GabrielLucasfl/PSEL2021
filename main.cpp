@@ -6,27 +6,9 @@
 #include <cmath>
 //functions
 
-void fazGol(Actuator *actuator){
-
-     actuator->sendCommand(false, 5, 1, 0.0, 0.0, false, 10.0f, false);
-}
-
-/*
-float VelPegaBola(float Pb, float Pr)
-
-{
-    //velocidade em X se as posicoes sao em x, e y para o cont
-    float V;
-    V= 0.001*fabs(Pb-Pr);
-
-}
-*/
-
-
-//o robo vira para determinado ponto
-//robo no ponto p2 vira para alvo no ponto p1
-
-void MiraeChuta(int id, float p1x, float p1y, float p2x, float p2y, float AngRobo,float kick,  Actuator *actuator)
+//MiraeChuta
+//MIRA PARA O PONTO ESPECIFICO
+void MiraeChuta(int id,float p1x, float p1y, float p2x, float p2y, float AngRobo,  Actuator *actuator)
 {
     float DeltaX, DeltaY;
     float Ang, AngMin, AngMax;
@@ -42,85 +24,73 @@ void MiraeChuta(int id, float p1x, float p1y, float p2x, float p2y, float AngRob
 
         if (AngMin > AngRobo)
         {
-            actuator->sendCommand(false, id, 0, 0, 0.6, true, 0, false);
+            actuator->sendCommand(false, id, 0, 0, 0.5, true, 0, false);
         }
 
         if ( (AngMin < AngRobo) && (AngRobo < AngMax) )
         {
-
-        actuator->sendCommand(false, id, 0, 0, 0, false, kick);
-
+        actuator->sendCommand(false, id, 0, 0, 0, false, 3.0, false);
         }
 
         if (AngMax < AngRobo)
         {
-        actuator->sendCommand(false, id, 0, 0, -0.6, true, 0, false);
+        actuator->sendCommand(false, id, 0, 0, -0.5, true, 0, false);
         }
 
 }
 
+//pegar a bola
 
-
-
-
-
-//o robo vira para determinado ponto
-//robo no ponto p1 vira para alvo no ponto p2
-
-
-int PegaBola(int id, float pbx, float pby, float prx, float pry, float AngRobo,  Actuator *actuator)
+//Mira
+void Mira(int id,float p1x, float p1y, float p2x, float p2y, float AngRobo,  Actuator *actuator)
 {
-    int pegou =-1;
     float DeltaX, DeltaY;
     float Ang, AngMin, AngMax;
-    DeltaX = pbx - prx;
-    DeltaY = pby - pry;
+    DeltaX = p1x - p2x;
+    DeltaY = p1y - p2y;
 
     //angulo que o alvo faz com a reta de refencia
     Ang  = atan2 (DeltaY,DeltaX);
 
     //intervalo de aceitacao
-    AngMin = Ang - 0.02;
-    AngMax = Ang + 0.02;
+    AngMin = Ang - 0.03;
+    AngMax = Ang + 0.03;
 
-    //velocidade proporcional
-    float Vx, Vy;
-    Vx= 0.001* fabs(DeltaX);
-    Vy= 0.001* fabs(DeltaY);
-
-
-    if (AngMin > AngRobo)
+        if (AngMin > AngRobo)
         {
-            actuator->sendCommand(false, id, 0, 0, 0.5);
-            pegou =-1;
+            actuator->sendCommand(false, id, 0, 0, 1.6, true, 0, false);
         }
 
         if ( (AngMin < AngRobo) && (AngRobo < AngMax) )
         {
-            //testa se pegou a bola
-            if( ( fabs(DeltaX)< 112.3 ) && ( fabs(DeltaY) <150.3 ) )
-            {
-                actuator->sendCommand(false, id, 0, 0, 0, true);
-                pegou =pegou+1;
-                std::cout << " OPA PEDIU PRA PARAR PAROU" << std::endl;
-            }
-            else
-            {
-                actuator->sendCommand(false, id, Vx, Vy, 0, true);
-            pegou =-1;
-            }
+        actuator->sendCommand(false, id, 0, 0, 0, false, 0, false);
         }
 
         if (AngMax < AngRobo)
         {
-        actuator->sendCommand(false, id, 0, 0, -0.5);
-        pegou =-1;
+        actuator->sendCommand(false, id, 0, 0, -1.6, true, 0, false);
         }
-        return pegou;
+
 }
 
+//posse de bola
+int Posse(float pbx, float pby, float prx, float pry)
+{
+    int pegou=0;
+    float DeltaX, DeltaY;
+    DeltaX = pbx - prx;
+    DeltaY = pby - pry;
+    //testa se pegou a bola
+    if( ( fabs(DeltaX)< 112.3 ) && ( fabs(DeltaY) <150.3 ) )
+    {
+        pegou =1;
+        std::cout << " OPA PEDIU PRA PARAR PAROU" << std::endl;
+    }
 
+    return pegou;
+}
 
+///////////////////////////////
 int main(int argc, char *argv[]) {
     QCoreApplication a(argc, argv);
 
@@ -129,8 +99,17 @@ int main(int argc, char *argv[]) {
 
     // Desired frequency
     int  desiredFrequency = 60;
-    int Estado =5;
+
+    //estado inicial da maquina de estados
+    int Estado =2;
+
+    //posicao em X e Y do gol
+    int golx= 4629.8;
+    int goly=-25.798;
+    //variaveis auxiliares
+    int opa=0;
     int possedeBola =-1;
+
     while(true) {
         // TimePoint
         std::chrono::high_resolution_clock::time_point beforeProcess = std::chrono::high_resolution_clock::now();
@@ -153,80 +132,93 @@ int main(int argc, char *argv[]) {
         SSL_DetectionRobot blueRobot4 = vision -> getLastRobotDetection(false, 4);
 
         //CODIGO
-        //robo0 mira no robo2 e chuta
-        MiraeChuta(0, blueRobot2.x(), blueRobot2.y(), blueRobot0.x(), blueRobot0.y() ,blueRobot0.orientation(),6.0 , actuator);
-
         //MAQUINA DE ESTADOS
-        if( (Estado !=2) && (Estado !=3) && (Estado !=4) )
-        {
-            Estado=1;
-        }
         switch (Estado)
         {
-            //Estado 1
+            //Estado 1: robo 0 pega a bola
             case 1:
-                std::cout << " Estado 1 foi" << std::endl;
-                //robo3 mira para a bola
-                MiraeChuta(3, ball.x(), ball.y(), blueRobot3.x(), blueRobot3.y() ,blueRobot3.orientation(),0 , actuator);
-
                 //Robo0 pega a bola
-                possedeBola= PegaBola(0, ball.x(), ball.y(), blueRobot0.x(), blueRobot0.y() ,blueRobot0.orientation(), actuator);
-                //testa se de fato o robo pegou a bola
-                if(possedeBola == 0)
+
+
+                //testa se o robo0 pegou a bola
+                possedeBola = Posse(ball.x(), ball.y(), blueRobot0.x(), blueRobot0.y());
+                opa= opa+possedeBola;
+                if(opa >= 3)
                 {
-                    Estado =2;
+                    opa=0;
+                    Estado = 2;
                 }
             break;
 
-                //Estado 2
+            //Estado 2: robo0 entra em posicao
             case 2:
-                //robo0 mira no robo2 e chuta
-                MiraeChuta(0, blueRobot2.x(), blueRobot2.y(), blueRobot0.x(), blueRobot0.y() ,blueRobot0.orientation(),6.0 , actuator);
+                //robo2 mira para a bola
+                Mira(2, ball.x(), ball.y(), blueRobot2.x(), blueRobot2.y() ,blueRobot2.orientation(), actuator);
 
-               //testa se o robo2 pegou a bola
-               if(possedeBola== 2)
-               {
-                    Estado= 3;
-               }
+                //robo0 vai para perto do robo2
 
+                //testa se robo0 ficou em posicao
+                if((possedeBola == 0))
+                {
+                    opa =opa +1;
+                    Estado = opa;
+                }
             break;
 
-                //Estado 3
+
+            //Estado 3: robo 0 passa bola para o robo 2
             case 3:
+                //robo3 mira para a bola
+                Mira(3, ball.x(), ball.y(), blueRobot3.x(), blueRobot3.y() ,blueRobot3.orientation(), actuator);
 
-                    //robo2 vira para robo3 e chuta
-                    MiraeChuta(2, ball.x(), ball.y(), blueRobot0.x(), blueRobot0.y() ,blueRobot0.orientation() ,6.0 , actuator);
+                //robo2 mira para a bola para pegala
+                Mira(2, ball.x(), ball.y(), blueRobot2.x(), blueRobot2.y() ,blueRobot2.orientation(), actuator);
 
-                   //testa se o robo3 pegou a bola
-                    if(possedeBola== 3)
-                    {
-                        Estado= 4;
-                    }
+                //robo0 mira no robo2 e chuta
+                MiraeChuta(0, blueRobot2.x(),blueRobot2.y(), blueRobot0.x(), blueRobot0.y() ,blueRobot0.orientation(), actuator);
+
+                //testa se o robo2 pegou a bola
+                possedeBola = Posse(ball.x(), ball.y(), blueRobot2.x(), blueRobot2.y());
+                opa= opa+possedeBola;
+                if(opa >= 3)
+                {
+                    opa=0;
+                    Estado = 4;
+                }
 
             break;
 
-            //Estado 4
+            //Estado 4: robo 2 passa a bola para o robo 3
             case 4:
+                //robo3 mira para a bola
+                Mira(3, ball.x(), ball.y(), blueRobot3.x(), blueRobot3.y() ,blueRobot3.orientation(), actuator);
+
+                //robo2 vira para robo3 e chuta
+                MiraeChuta(2, blueRobot3.x(),blueRobot3.y(), blueRobot2.x(), blueRobot2.y() ,blueRobot2.orientation(), actuator);
+
+                possedeBola = Posse(ball.x(), ball.y(), blueRobot3.x(), blueRobot3.y());
+                opa= opa+possedeBola;
+                //testa se o robo3 pegou a bola
+                if(opa >= 3)
+                {
+                    Estado= 5;
+                }
+
+            break;
+
+            //Estado 5: robo 3 chuta a bola para o gol
+            case 5:
                 //faz o robo ir para a posicao de chute
 
-                //robo3 vira para gol e chuta
-                MiraeChuta(3 ,ball.x(), ball.y(), blueRobot0.x(), blueRobot0.y() ,blueRobot0.orientation(),6.0 , actuator);
-
+               //robo3 vira para gol e chuta
+               MiraeChuta(3, golx, goly, blueRobot3.x(), blueRobot3.y() ,blueRobot3.orientation(), actuator);
             break;
 
             default:
                 Estado =1;
             break;
-
-        }
-        std::cout <<"Estado: " <<Estado<<" posse de bola: "<< possedeBola << std::endl;
-
-
-        ///////////////////////////// FIM DA MAQUINA DE ESTADOS
-        //actuator->sendCommand(false, 0, Vx, Vy, 0, true);
-        //std::cout <<"Angulo robo:"<< blueRobot1.orientation() << "rad Ang Bola: " << std::endl;
-        std::cout << "posicao 0roboX:" <<blueRobot0.x() << " 0posicao roboY:" <<blueRobot0.y() << std::endl;
-        std::cout << "posicao bolaX:" <<ball.x() << " posicao BolaY:" <<ball.y() << std::endl;
+        } //fim da maquina de estados
+         std::cout << " bola em X" <<ball.x()<<" bola em y:"<< ball.y()<<" OPA: "<<opa<< std::endl;
 
         //end codigo
 
